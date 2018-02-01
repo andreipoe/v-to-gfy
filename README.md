@@ -31,6 +31,8 @@ You can easily run your own copy of the v-to-gfy bot.
     git clone https://github.com/andreipoe/v-to-gfy.git
     ```
 
-2. Set up your access credentials. **TODO**.
+2. Set up your access credentials: 
+   1. Copy `config.ini.template` to `config.ini`.
+   2. Open `config.ini` and set your credentials under the `account` section according to the [PRAW script application authentication docs](http://praw.readthedocs.io/en/latest/getting_started/authentication.html).
 3. Set up your bot preferences. **TODO**.
 

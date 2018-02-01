@@ -1,0 +1,11 @@
+[account]
+client_id = SI8pN3DSbt0zor
+client_secret = SI8pN3DSbt0zor
+password = 1guiwevlfo00esyy
+user_agent = testscript by /u/fakebot3
+username = fakebot3
+
+[preferences]
+subreddits = funny instant_regret
+interval = 30
+
