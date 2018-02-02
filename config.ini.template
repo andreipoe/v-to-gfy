@@ -5,6 +5,10 @@ password = 1guiwevlfo00esyy
 user_agent = testscript by /u/fakebot3
 username = fakebot3
 
+[gfycat]
+client_id = {{client_id}}
+client_secret = {{client_secret}}
+
 [preferences]
 subreddits = funny instant_regret
 interval = 30

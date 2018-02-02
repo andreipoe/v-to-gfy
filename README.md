@@ -33,6 +33,7 @@ You can easily run your own copy of the v-to-gfy bot.
 
 2. Set up your access credentials: 
    1. Copy `config.ini.template` to `config.ini`.
-   2. Open `config.ini` and set your credentials under the `account` section according to the [PRAW script application authentication docs](http://praw.readthedocs.io/en/latest/getting_started/authentication.html).
+   2. Open `config.ini` and set your Reddit credentials under the `reddit` section according to the [PRAW script application authentication docs](http://praw.readthedocs.io/en/latest/getting_started/authentication.html).
+   3. Open `config.ini` and set your gfycat credentials under the `gfycat` section using the details received by email after following the [access token procedure](https://developers.gfycat.com/api/#quick-start).
 3. Set up your bot preferences. **TODO**.
 
