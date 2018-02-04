@@ -3,6 +3,7 @@
 import os.path
 import re
 import requests
+import signal
 import sys
 import time
 from configparser import ConfigParser
@@ -46,6 +47,10 @@ def read_processed_submissions():
 
     return completed
 
+def sigint_handler(signal, frame):
+    print("Received SIGINT, shutting down...", file=sys.stderr)
+    sys.exit(0)
+
 def main():
     config  = read_config()
 
@@ -88,19 +93,28 @@ def main():
         print('Invalid interval:', config['preferences']['interval'] + '.', 'Using default: 300.', file=sys.stderr)
         interval = 300
 
+    signal.signal(signal.SIGINT, sigint_handler)
+
     # Main loop: get new submissions, find the ones we're interested in, create gfycat mirrors, save them to a file so we don't process them twice, sleep for the specified interval, then repeat
     while True:
-        already_processed = read_processed_submissions()
+        try:
+            already_processed = read_processed_submissions()
 
-        for submission in reddit.subreddit(watchlist).new(limit=10):
-            if(submission.id in already_processed):
-                continue
+            for submission in reddit.subreddit(watchlist).new(limit=10):
+                if(submission.id in already_processed):
+                    continue
 
-            # TODO: convert if required
-            print(submission.permalink)
-            log_processed(submission, '???')
+                # TODO: convert if required
+                print(submission.permalink + ',', submission.url)
+                log_processed(submission, '???')
+
+        except Exception as err:
+            print("Error:", err, file=sys.stderr)
+            print("Waiting", 2*interval, "seconds, then restarting...", file=sys.stderr)
+            time.sleep(interval)
 
         time.sleep(interval)
+
         # TODO: we may need to refresh API tokens from time to time
 
 if __name__ == '__main__':
