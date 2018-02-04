@@ -6,6 +6,7 @@ import requests
 import signal
 import sys
 import time
+import traceback
 from configparser import ConfigParser
 from datetime import datetime
 
@@ -13,9 +14,17 @@ from praw import Reddit
 
 CONFIG_FILE = 'config.ini'
 LOG_FILE    = 'completed.log'
+ERROR_FILE  = 'failed.log'
 
-GFYCAT_API_TOKEN = 'https://api.gfycat.com/v1/oauth/token'
-GFYCAT_API_SEND = 'https://api.gfycat.com/v1/gfycats'
+GFYCAT_API_TOKEN  = 'https://api.gfycat.com/v1/oauth/token'
+GFYCAT_API_SEND   = 'https://api.gfycat.com/v1/gfycats'
+GFYCAT_API_STATUS = 'https://api.gfycat.com/v1/gfycats/fetch/status/'
+
+GFYCAT_STATUS_INTERVAL = 5
+
+COMMENT_MSG = """Here is a [gfycat mirror of this submission's video](https://gfycat.com/{}).
+
+Because v.redd.it does not expose direct media links, sharing the video without the comments page is cumbersome. The gfycat is a direct media link that can be viewed on virtually all platforms. [About this bot](https://github.com/andreipoe/v-to-gfy)."""
 
 def read_config():
     config = ConfigParser()
@@ -23,17 +32,43 @@ def read_config():
 
     return config
 
-# Requests gfycat to create a gif from a given URL
-def send_url_to_gfycat(url, token):
+# Request gfycat to create a gif from a given URL and wait until the job completes (or fails)
+def send_url_to_gfycat(url, duration, token):
     r = requests.post(GFYCAT_API_SEND,
-        json={'fetchUrl': url},
+        json={'fetchUrl': url, 'cut': {'start': 0, 'duration': duration}},
         headers={'Authorization': 'Bearer ' + token})
     print('Send:', r.status_code, r.json())
 
+    if r.status_code != 200:
+        return None
+    else:
+        gfyname  = r.json()['gfyname']
+        status = requests.get(GFYCAT_API_STATUS + gfyname).json()
+        print(status)
+        while status['task'] == 'encoding':
+            time.sleep(GFYCAT_STATUS_INTERVAL)
+            status = requests.get(GFYCAT_API_STATUS + gfyname).json()
+            print(status)
+
+        if status['task'] == 'complete':
+            return status['gfyname']
+
+        if status['task'] == 'error':
+            print('Gfycat task error:', status, file=sys.stderr)
+        else:
+            print('Unknown gfycat status:', status, file=sys.stderr)
+        return None
+
 # Mark a submission as already processed, so that it is skipped the next time it's encountered
-def log_processed(submission, gfycat_id):
-    with open(LOG_FILE, 'a') as f:
-        f.write(','.join([str(datetime.now()), submission.id, 'https://reddit.com/r' + submission.permalink, 'https://gfycat.com/' + gfycat_id]) + '\n')
+def log_processed(submission, gfyname):
+    if gfyname is not None:
+        fname = LOG_FILE
+    else:
+        fname   = ERROR_FILE
+        gfyname = 'error'
+
+    with open(fname, 'a') as f:
+        f.write(','.join([str(datetime.now()), submission.id, 'https://reddit.com/r' + submission.permalink, 'https://gfycat.com/' + gfyname]) + '\n')
 
 # Get a list of ids of already processed submissions
 def read_processed_submissions():
@@ -47,6 +82,25 @@ def read_processed_submissions():
 
     return completed
 
+# Create a gfycat mirror of a submission's video
+def mirror_to_gfy(submission, reddit, gfycat_token):
+    try:
+        video    = submission.media['reddit_video']['fallback_url']
+        duration = submission.media['reddit_video']['duration']
+    except TypeError:
+        # If the submission is a x-post, the video url isn't available directly, so we need to get it from the original submission
+        xpost_url = requests.get(submission.url).url
+        xpost     = reddit.submission(url=xpost_url)
+        video     = xpost.media['reddit_video']['fallback_url']
+        duration  = xpost.media['reddit_video']['duration']
+
+    # gfycay supports a maximum length of 60 seconds, so reject videos that exceed this duration
+    if duration > 60:
+        return None
+
+    return send_url_to_gfycat(video, duration, gfycat_token)
+
+# Print a friendly message when receiving Ctrl-C
 def sigint_handler(signal, frame):
     print("Received SIGINT, shutting down...", file=sys.stderr)
     sys.exit(0)
@@ -78,8 +132,10 @@ def main():
         print(r.json())
         sys.exit(1)
 
+    # TODO: debugging
     if (len(sys.argv) > 1):
-        send_url_to_gfycat(sys.argv[1], gfycat_token)
+        mirror_to_gfy(reddit.submission(url=sys.argv[1]), reddit, gfycat_token)
+        sys.exit(0)
 
     # Read the list of watched subreddits
     watched_subreddits = re.split('\s+', config['preferences']['subreddits'].strip())
@@ -101,15 +157,22 @@ def main():
             already_processed = read_processed_submissions()
 
             for submission in reddit.subreddit(watchlist).new(limit=10):
-                if(submission.id in already_processed):
+                if submission.id in already_processed or 'v.redd.it' not in submission.url:
                     continue
 
-                # TODO: convert if required
                 print(submission.permalink + ',', submission.url)
-                log_processed(submission, '???')
+
+                gfyname = mirror_to_gfy(submission, reddit, gfycat_token)
+                # TODO: Post a reddit message when creating mirror succeeds
+                if gfyname is not None:
+                    print(COMMENT_MSG.format(gfyname))
+                log_processed(submission, gfyname)
+
+        # TODO: Add PM functionality
 
         except Exception as err:
             print("Error:", err, file=sys.stderr)
+            print(traceback.format_exc(), file=sys.stderr)
             print("Waiting", 2*interval, "seconds, then restarting...", file=sys.stderr)
             time.sleep(interval)
 
