@@ -12,6 +12,9 @@ username = {{username}}
 password = {{password}}
 
 [preferences]
+enable_subreddit_monitoring = false
+enable_pm_monitoring = false
+enable_mention_monitoring = false
 subreddits = funny instant_regret
 interval = 30
 

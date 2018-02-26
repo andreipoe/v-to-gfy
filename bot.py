@@ -9,12 +9,16 @@ import time
 import traceback
 from configparser import ConfigParser
 from datetime import datetime
+from pprint import pprint
 
+import praw.models
 from praw import Reddit
 
 CONFIG_FILE = 'config.ini'
 LOG_FILE    = 'completed.log'
 ERROR_FILE  = 'failed.log'
+
+GFYCAT_BASE_URL = 'https://gfycat.com/'
 
 GFYCAT_API_TOKEN  = 'https://api.gfycat.com/v1/oauth/token'
 GFYCAT_API_SEND   = 'https://api.gfycat.com/v1/gfycats'
@@ -25,6 +29,21 @@ GFYCAT_STATUS_INTERVAL = 5
 COMMENT_MSG = """Here is a [gfycat mirror of this submission's video](https://gfycat.com/{}).
 
 Because v.redd.it does not expose direct media links, sharing the video without the comments page is cumbersome. The gfycat is a direct media link that can be viewed on virtually all platforms. [About this bot](https://github.com/andreipoe/v-to-gfy)."""
+PM_MSG      = """Hi /u/{},
+
+I've mirrored all the submissions to v.redd.it that I could find in your PM. Here are the links:
+
+{}
+
+Thanks for using your local friendly Reddit bot!
+
+&nbsp;
+
+***
+
+^(You can also mention me in a comment to generate a mirror for the parent submission. More) [^(about this bot)](https://github.com/andreipoe/v-to-gfy)^.
+
+^(Something wrong or missing?) [^(Open an issue)](https://github.com/andreipoe/v-to-gfy/issues)^(. Please make sure to include the submission URL and the bot's reply (if any)^) ^(in your bug report.)"""
 
 def read_config():
     config = ConfigParser()
@@ -68,7 +87,7 @@ def log_processed(submission, gfyname):
         gfyname = 'error'
 
     with open(fname, 'a') as f:
-        f.write(','.join([str(datetime.now()), submission.id, 'https://reddit.com/r' + submission.permalink, 'https://gfycat.com/' + gfyname]) + '\n')
+        f.write(','.join([str(datetime.now()), submission.id, 'https://reddit.com/r' + submission.permalink, GFYCAT_BASE_URL + gfyname]) + '\n')
 
 # Get a list of ids of already processed submissions
 def read_processed_submissions():
@@ -99,6 +118,59 @@ def mirror_to_gfy(submission, reddit, gfycat_token):
         return None
 
     return send_url_to_gfycat(video, duration, gfycat_token)
+
+# Parse a string and extract all URLs to reddit.com or v.redd.it
+def detect_urls_in_text(text):
+    words  = text.strip().split()
+    re_url = re.compile(r'(?:(?:https?):\/\/)?(?:(?:www\.|)reddit\.com|v\.redd\.it)')
+
+    return [w for w in words if re_url.match(w)]
+
+# Main loop to monitor new submissions with v.redd.it content
+def submissions_loop(reddit, gfycat_token):
+    already_processed = read_processed_submissions()
+
+    for submission in reddit.subreddit(watchlist).new(limit=10):
+        if submission.id in already_processed or 'v.redd.it' not in submission.url:
+            continue
+
+        print(submission.permalink + ',', submission.url)
+
+        gfyname = mirror_to_gfy(submission, reddit, gfycat_token)
+        # TODO: Post a reddit message when creating mirror succeeds
+        if gfyname is not None:
+            print(COMMENT_MSG.format(gfyname))
+        log_processed(submission, gfyname)
+
+# Main loop to check and respond to private messages
+def pm_loop(reddit, gfycat_token):
+    for m in reddit.inbox.unread():
+        if not isinstance(m, praw.models.Message):
+            continue
+
+        # Extract the URLs in the body of the received message
+        urls = detect_urls_in_text(m.body)
+        print('Received PM from', m.author, 'containing v.redd.it links:', urls)
+
+        # Create mirrors for each extracted URL
+        mirrors = {}
+        for u in urls:
+            try:
+                mirror = GFYCAT_BASE_URL + mirror_to_gfy(reddit.submission(url=u), reddit, gfycat_token)
+            except:
+                mirror = 'FAILED'
+            mirrors[u] = mirror
+
+        print('Responding to PM from', m.author, 'with mirrors:')
+        pprint(mirrors)
+
+        # Craft a PM reply
+        mirrors_text = '\n'.join('{} -- {}'.format(v, mirror) for v,mirror in mirrors.items())
+        reply = PM_MSG.format(m.author, mirrors_text)
+
+        # Send the reply and mark the message as read so that we don't process it again
+        m.reply(reply)
+        m.mark_read()
 
 # Print a friendly message when receiving Ctrl-C
 def sigint_handler(signal, frame):
@@ -134,19 +206,26 @@ def main():
 
     # TODO: debugging
     if (len(sys.argv) > 1):
-        mirror_to_gfy(reddit.submission(url=sys.argv[1]), reddit, gfycat_token)
+        gfyname = mirror_to_gfy(reddit.submission(url=sys.argv[1]), reddit, gfycat_token)
+        print(GFYCAT_BASE_URL + gfyname)
         sys.exit(0)
 
-    # Read the list of watched subreddits
-    watched_subreddits = re.split('\s+', config['preferences']['subreddits'].strip())
-    print('Watching:', watched_subreddits)
-    watchlist = '+'.join(watched_subreddits)
+    # Read enabled components
+    prefs_config = config['preferences']
+    enabled = {c:prefs_config.getboolean('enable_'+c+'_monitoring') for c in ['subreddit', 'pm', 'mention']}
+    print("Components enabled:", [c for c in enabled.keys() if enabled[c] == True])
+
+    # Read the list of watched subreddits if monitoring subreddits is enabled
+    if enabled['subreddit']:
+        watched_subreddits = re.split('\s+', prefs_config['subreddits'].strip())
+        print('Watching:', watched_subreddits)
+        watchlist = '+'.join(watched_subreddits)
 
     # Read the polling interval
     try:
-        interval = int(config['preferences']['interval'])
+        interval = int(prefs_config['interval'])
     except(ValueError):
-        print('Invalid interval:', config['preferences']['interval'] + '.', 'Using default: 300.', file=sys.stderr)
+        print('Invalid interval:', prefs_config['interval'] + '.', 'Using default: 300.', file=sys.stderr)
         interval = 300
 
     signal.signal(signal.SIGINT, sigint_handler)
@@ -154,21 +233,15 @@ def main():
     # Main loop: get new submissions, find the ones we're interested in, create gfycat mirrors, save them to a file so we don't process them twice, sleep for the specified interval, then repeat
     while True:
         try:
-            already_processed = read_processed_submissions()
+            # Mirror recent submissions
+            if enabled['subreddit']:
+                submissions_loop(reddit, gfycat_token)
 
-            for submission in reddit.subreddit(watchlist).new(limit=10):
-                if submission.id in already_processed or 'v.redd.it' not in submission.url:
-                    continue
+            # Create mirrors on-demand for submissions sent by PM
+            if enabled['pm']:
+                pm_loop(reddit, gfycat_token)
 
-                print(submission.permalink + ',', submission.url)
-
-                gfyname = mirror_to_gfy(submission, reddit, gfycat_token)
-                # TODO: Post a reddit message when creating mirror succeeds
-                if gfyname is not None:
-                    print(COMMENT_MSG.format(gfyname))
-                log_processed(submission, gfyname)
-
-        # TODO: Add PM functionality
+            # TODO: Create mirrors on-demand for posts where the bot is mentioned in comments
 
         except Exception as err:
             print("Error:", err, file=sys.stderr)
