@@ -1,6 +1,5 @@
 config.ini
-completed.log
-failed.log
+*.log
 
 *.pyc
 

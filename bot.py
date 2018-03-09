@@ -96,7 +96,7 @@ def log_processed(submission, gfyname):
         gfyname = 'error'
 
     with open(fname, 'a') as f:
-        f.write(','.join([str(datetime.now()), submission.id, 'https://reddit.com/r' + submission.permalink, GFYCAT_BASE_URL + gfyname]) + '\n')
+        f.write(','.join([str(datetime.now()), submission.id, 'https://reddit.com/' + submission.permalink, GFYCAT_BASE_URL + gfyname]) + '\n')
 
 # Get a list of ids of already processed submissions
 def read_processed_submissions():
@@ -198,9 +198,15 @@ def mention_loop(reddit, gfycat_token):
         if not isinstance(m, praw.models.Comment):
             continue
 
-        print('Received mention from', m.author, 'with URL:', 'https://reddit.com/r' + m.submission.permalink)
+        print('Received comment from', m.author, 'on submission:', 'https://reddit.com/' + m.submission.permalink)
+        if 'u/' + reddit.user.me() not in m.body:
+            print('Comment does not mention the bot')
+            m.mark_read()
+            continue
         if 'v.redd.it' not in m.submission.url:
             print('Not a v.redd.it submission')
+            m.mark_read()
+            continue
 
         try:
             mirror = GFYCAT_BASE_URL + mirror_to_gfy(m.submission, reddit, gfycat_token)
