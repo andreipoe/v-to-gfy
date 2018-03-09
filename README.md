@@ -34,14 +34,14 @@ Soon™, the bot will support:
 
 ## Running your own bot
 
-You can easily run your own copy of the v-to-gfy bot. **This section is under development**.
+You can easily run your own copy of the v-to-gfy bot.
 
 ### Requirements
 
 * A server connected to the Internet and capable of running Python 3.
 * [PRAW](http://praw.readthedocs.io/en/latest/getting_started/installation.html).
 * A Reddit account for the bot. **WARNING**: Do **not** use your main Reddit accout for the bot -- you **will** get banned from subreddits that don't allow bots or don't want this bot in particular.
-* A gfycat account to upload to.
+* A gfycat account to which mirrors will be uploaded.
 
 ### Set up
 
@@ -55,7 +55,37 @@ You can easily run your own copy of the v-to-gfy bot. **This section is under de
    1. Copy `config.ini.template` to `config.ini`.
    2. Open `config.ini` and set your Reddit credentials under the `reddit` section according to the [PRAW script application authentication docs](http://praw.readthedocs.io/en/latest/getting_started/authentication.html).
    3. Open `config.ini` and set your gfycat credentials under the `gfycat` section using the details received by email after following the [access token procedure](https://developers.gfycat.com/api/#quick-start). Note that you also need your account's username and password, as per the [Password Grant docs](https://developers.gfycat.com/api/#password-grant).
-3. Set up your bot preferences. **TODO**.
+3. Set up your bot preferences.
+    1. Choose which features you want to enable (subreddit sraping, PM monitoring, mention monitoring) by setting the corresponding key to `true`.
+    2. If using subreddit scraping, set the list of monitored subreddits. Do not include `/r/` in front of the subreddit name, and separate multiple subreddits with spaces.
+    3. Set the interval at which the bot will check for new submissions/PMs/mentions.
+
+### Running
+
+You only need to run `python3 bot.py`. Assuming that you have PRAW installed and that you have set up your `config.ini`, this is all you need to do.
+
+Alternatively, you can run the bot in a [Docker container](https://www.docker.com/what-docker):
+
+1. Obtain the Docker image by either:
+    1. Pulling from [Docker Hub](https://hub.docker.com/r/andreipoe/v-to-gfy):
+
+        ```
+        docker pull andreipoe/v-to-gfy
+        ```
+
+    2. Cloning this repository and building an image locally:
+
+        ```
+        docker build -t andreipoe/v-to-gfy .
+        ```
+
+2. Run the container:
+
+    ```
+    docker run -d --name v-to-gfy-bot --restart unless-stopped -v /path/to/config.ini:/bot/config.ini:ro andreipoe/v-to-gfy
+    ```
+
+**Note**: In the run command above, make sure you replace `/path/to/config.ini` with the actual path to your completed `config.ini`.
 
 ---------------------------------------
 
