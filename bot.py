@@ -26,9 +26,9 @@ GFYCAT_API_STATUS = 'https://api.gfycat.com/v1/gfycats/fetch/status/'
 
 GFYCAT_STATUS_INTERVAL = 5
 
-COMMENT_MSG = """Here is a [gfycat mirror of this submission's video](https://gfycat.com/{}).
+COMMENT_MSG = """Here is a [Gfycat mirror of this submission's video](https://gfycat.com/{}).
 
-Because v.redd.it does not expose direct media links, sharing the video without the comments page is cumbersome. The gfycat is a direct media link that can be viewed on virtually all platforms. [About this bot](https://github.com/andreipoe/v-to-gfy)."""
+Because v.redd.it does not expose direct media links, sharing the video without the comments page is cumbersome. The Gfycat is a direct media link that can be viewed on virtually all platforms. [About this bot](https://github.com/andreipoe/v-to-gfy)."""
 PM_MSG      = """Hi /u/{},
 
 I've mirrored all the submissions to v.redd.it that I could find in your PM. Here are the links:
@@ -42,6 +42,15 @@ Thanks for using your local friendly Reddit bot!
 ***
 
 ^(You can also mention me in a comment to generate a mirror for the parent submission. More) [^(about this bot)](https://github.com/andreipoe/v-to-gfy)^.
+
+^(Something wrong or missing?) [^(Open an issue)](https://github.com/andreipoe/v-to-gfy/issues)^(. Please make sure to include the submission URL and the bot's reply (if any)^) ^(in your bug report.)"""
+MENTION_MSG = """Here is a [Gfycat mirror of this submission's video]({}). This makes it easier to share the content without the Reddit comments section.
+
+Thanks for using your local friendly Reddit bot!
+
+***
+
+^(You can also) [^(send me a PM)](https://www.reddit.com/message/compose/?to=v-to-gfy_bot&subject=Mirror&message=Paste%20links%20to%20v.redd.it%20submission%20below%2C%20one%20per%20line.%20You%20will%20receive%20a%20single%20reply%20with%20a%20mirror%20for%20each%20valid%20v.redd.it%20link.%20Other%20links%20and%20text%20will%20be%20ignored.%0D%0A%0D%0A%3CYOUR%20LINKS%20HERE%3E) ^(with one or more v.redd.it links and I'll respond with Gfycat mirror links. More) [^(about this bot)](https://github.com/andreipoe/v-to-gfy)^.
 
 ^(Something wrong or missing?) [^(Open an issue)](https://github.com/andreipoe/v-to-gfy/issues)^(. Please make sure to include the submission URL and the bot's reply (if any)^) ^(in your bug report.)"""
 
@@ -169,7 +178,51 @@ def pm_loop(reddit, gfycat_token):
         reply = PM_MSG.format(m.author, mirrors_text)
 
         # Send the reply and mark the message as read so that we don't process it again
-        m.reply(reply)
+        replied = False
+        while not replied:
+            try:
+                m.reply(reply)
+                replied = True
+            except praw.exceptions.APIException as err:
+                if err.error_type == 'RATELIMIT':
+                    print('Reddit ratelimit hit. Waiting 10 minutes, then retrying...', file=sys.stderr)
+                    time.sleep(600)
+                else:
+                    raise
+
+        m.mark_read()
+
+# Main loop to check and respond to mentions
+def mention_loop(reddit, gfycat_token):
+    for m in reddit.inbox.unread():
+        if not isinstance(m, praw.models.Comment):
+            continue
+
+        print('Received mention from', m.author, 'with URL:', 'https://reddit.com/r' + m.submission.permalink)
+        if 'v.redd.it' not in m.submission.url:
+            print('Not a v.redd.it submission')
+
+        try:
+            mirror = GFYCAT_BASE_URL + mirror_to_gfy(m.submission, reddit, gfycat_token)
+        except:
+            continue
+
+        print('Responding to mention from', m.author, 'with mirror:', mirror)
+        reply = MENTION_MSG.format(mirror)
+
+        # Send the reply and mark the message as read so that we don't process it again
+        replied = False
+        while not replied:
+            try:
+                m.reply(reply)
+                replied = True
+            except praw.exceptions.APIException as err:
+                if err.error_type == 'RATELIMIT':
+                    print('Reddit ratelimit hit. Waiting 10 minutes, then retrying...', file=sys.stderr)
+                    time.sleep(600)
+                else:
+                    raise
+
         m.mark_read()
 
 # Print a friendly message when receiving Ctrl-C
@@ -178,7 +231,7 @@ def sigint_handler(signal, frame):
     sys.exit(0)
 
 def main():
-    config  = read_config()
+    config = read_config()
 
     # Log in to Reddit
     reddit_config = config['reddit']
@@ -227,6 +280,7 @@ def main():
     except(ValueError):
         print('Invalid interval:', prefs_config['interval'] + '.', 'Using default: 300.', file=sys.stderr)
         interval = 300
+    print('Interval between checks:', interval, 'seconds')
 
     signal.signal(signal.SIGINT, sigint_handler)
 
@@ -241,12 +295,13 @@ def main():
             if enabled['pm']:
                 pm_loop(reddit, gfycat_token)
 
-            # TODO: Create mirrors on-demand for posts where the bot is mentioned in comments
+            if enabled['mention']:
+                mention_loop(reddit, gfycat_token)
 
         except Exception as err:
-            print("Error:", err, file=sys.stderr)
+            print('Error:', err, file=sys.stderr)
             print(traceback.format_exc(), file=sys.stderr)
-            print("Waiting", 2*interval, "seconds, then restarting...", file=sys.stderr)
+            print('Waiting', 2*interval, 'seconds, then restarting...', file=sys.stderr)
             time.sleep(interval)
 
         time.sleep(interval)
