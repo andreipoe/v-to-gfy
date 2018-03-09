@@ -10,11 +10,13 @@ v.redd.it links are different from most other content posted on Reddit, since th
 
 The bot obtains content to mirror from 3 sources:
 
-1. Automatiically scraping subreddits and checking for v.redd.it content links.
+1. Automatically scraping subreddits and checking for v.redd.it content links.
 2. PMs from users containing links to v.redd.it posts.
 3. Mentions in the comments of a v.reddd.it post.
 
 In all cases, it automatically creates gfycat mirros of the v.redd.it content. Gfycat content can be viewed on all platforms, and the content is served on a dedicated page, without any discussion threads.
+
+**Note**: The subreddit scraping feature is incomplete and not in use as of 08-Mar-2018.
 
 ### Invoking the bot on demand
 
@@ -24,7 +26,7 @@ When mentioned in the comments of a post, the bot will use the post's content to
 
 ## Upcoming features and improvements
 
-Soon<sup>TM</sup>, the bot will support:
+Soon™, the bot will support:
 
 * Mirroring submissions containing audio to Streamable instead of Gfycat.
 
