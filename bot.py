@@ -131,7 +131,7 @@ def mirror_to_gfy(submission, reddit, gfycat_token):
 # Parse a string and extract all URLs to reddit.com or v.redd.it
 def detect_urls_in_text(text):
     words  = text.strip().split()
-    re_url = re.compile(r'(?:(?:https?):\/\/)?(?:(?:www\.|)reddit\.com|v\.redd\.it)')
+    re_url = re.compile(r'(?:(?:https?):\/\/)?(?:(?:www\.|)reddit\.com|v\.redd\.it)\/\S+')
 
     return [w for w in words if re_url.match(w)]
 
@@ -174,7 +174,7 @@ def pm_loop(reddit, gfycat_token):
         pprint(mirrors)
 
         # Craft a PM reply
-        mirrors_text = '\n'.join('{} -- {}'.format(v, mirror) for v,mirror in mirrors.items())
+        mirrors_text = '\n'.join('* {} -- {}'.format(v, mirror) for v,mirror in mirrors.items())
         reply = PM_MSG.format(m.author, mirrors_text)
 
         # Send the reply and mark the message as read so that we don't process it again
