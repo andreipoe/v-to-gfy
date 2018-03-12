@@ -199,7 +199,7 @@ def mention_loop(reddit, gfycat_token):
             continue
 
         print('Received comment from', m.author, 'on submission:', 'https://reddit.com/' + m.submission.permalink)
-        if 'u/' + reddit.user.me() not in m.body:
+        if 'u/' + str(reddit.user.me()) not in m.body:
             print('Comment does not mention the bot')
             m.mark_read()
             continue
@@ -307,7 +307,9 @@ def main():
         except Exception as err:
             print('Error:', err, file=sys.stderr)
             print(traceback.format_exc(), file=sys.stderr)
-            print('Waiting', 2*interval, 'seconds, then restarting...', file=sys.stderr)
+
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            print('[' + timestamp + ']', 'Waiting', 2*interval, 'seconds, then restarting...', file=sys.stderr)
             time.sleep(interval)
 
         time.sleep(interval)
