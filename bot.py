@@ -139,6 +139,13 @@ def detect_urls_in_text(text):
 
     return [w for w in words if re_url.match(w)]
 
+# When being ratelimitted by the Reddit API, wait 10 minutes before retrying
+def ratelimit_sleep():
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    print('[' + timestamp + ']', 'Reddit ratelimit hit. Waiting 10 minutes, then retrying...', file=sys.stderr)
+    time.sleep(600)
+    print(file=sys.stderr)
+
 # Main loop to monitor new submissions with v.redd.it content
 def submissions_loop(reddit, gfycat_token):
     already_processed = read_processed_submissions()
@@ -176,6 +183,7 @@ def pm_loop(reddit, gfycat_token):
 
         print('Responding to PM from', m.author, 'with mirrors:')
         pprint(mirrors)
+        print()
 
         # Craft a PM reply
         mirrors_text = '\n'.join('* {} -- {}'.format(v, mirror) for v,mirror in mirrors.items())
@@ -189,8 +197,7 @@ def pm_loop(reddit, gfycat_token):
                 replied = True
             except praw.exceptions.APIException as err:
                 if err.error_type == 'RATELIMIT':
-                    print('Reddit ratelimit hit. Waiting 10 minutes, then retrying...', file=sys.stderr)
-                    time.sleep(600)
+                    ratelimit_sleep()
                 else:
                     raise
 
@@ -218,6 +225,7 @@ def mention_loop(reddit, gfycat_token):
             continue
 
         print('Responding to mention from', m.author, 'with mirror:', mirror)
+        print()
         reply = MENTION_MSG.format(mirror)
 
         # Send the reply and mark the message as read so that we don't process it again
@@ -228,8 +236,7 @@ def mention_loop(reddit, gfycat_token):
                 replied = True
             except praw.exceptions.APIException as err:
                 if err.error_type == 'RATELIMIT':
-                    print('Reddit ratelimit hit. Waiting 10 minutes, then retrying...', file=sys.stderr)
-                    time.sleep(600)
+                        ratelimit_sleep()
                 else:
                     raise
 
@@ -291,6 +298,7 @@ def main():
         print('Invalid interval:', prefs_config['interval'] + '.', 'Using default: 300.', file=sys.stderr)
         interval = 300
     print('Interval between checks:', interval, 'seconds')
+    print()
 
     signal.signal(signal.SIGINT, sigint_handler)
 
@@ -315,6 +323,7 @@ def main():
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
             print('[' + timestamp + ']', 'Waiting', 2*interval, 'seconds, then restarting...', file=sys.stderr)
             time.sleep(interval)
+            print(file=sys.stderr)
 
         time.sleep(interval)
 
