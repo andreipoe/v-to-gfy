@@ -61,9 +61,9 @@ def read_config():
     return config
 
 # Request gfycat to create a gif from a given URL and wait until the job completes (or fails)
-def send_url_to_gfycat(url, duration, token):
+def send_url_to_gfycat(url, title, description, duration, token):
     r = requests.post(GFYCAT_API_SEND,
-        json={'fetchUrl': url, 'cut': {'start': 0, 'duration': duration}},
+        json={'fetchUrl': url, 'cut': {'start': 0, 'duration': duration}, 'title': title, 'description': description},
         headers={'Authorization': 'Bearer ' + token})
     print('Send:', r.status_code, r.json())
 
@@ -115,18 +115,22 @@ def mirror_to_gfy(submission, reddit, gfycat_token):
     try:
         video    = submission.media['reddit_video']['fallback_url']
         duration = submission.media['reddit_video']['duration']
+        title    = submission.title
     except TypeError:
         # If the submission is a x-post, the video url isn't available directly, so we need to get it from the original submission
         xpost_url = requests.get(submission.url).url
         xpost     = reddit.submission(url=xpost_url)
         video     = xpost.media['reddit_video']['fallback_url']
         duration  = xpost.media['reddit_video']['duration']
+        title     = xpost.title
 
-    # gfycay supports a maximum length of 60 seconds, so reject videos that exceed this duration
+    description = 'Mirrored from ' + submission.url
+
+    # gfycat supports a maximum length of 60 seconds, so reject videos that exceed this duration
     if duration > 60:
         return None
 
-    return send_url_to_gfycat(video, duration, gfycat_token)
+    return send_url_to_gfycat(video, title, description, duration, gfycat_token)
 
 # Parse a string and extract all URLs to reddit.com or v.redd.it
 def detect_urls_in_text(text):
