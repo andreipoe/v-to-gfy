@@ -28,7 +28,15 @@ GFYCAT_STATUS_INTERVAL = 5
 
 COMMENT_MSG = """Here is a [Gfycat mirror of this submission's video](https://gfycat.com/{}).
 
-Because v.redd.it does not expose direct media links, sharing the video without the comments page is cumbersome. The Gfycat is a direct media link that can be viewed on virtually all platforms. [About this bot](https://github.com/andreipoe/v-to-gfy)."""
+Because v.redd.it does not expose direct media links, sharing the video without the comments page is cumbersome. The Gfycat is a direct media link that can be viewed on virtually all platforms.
+
+&nbsp;
+
+***
+
+^(You can also mention me in a comment to generate a mirror for the parent submission or) [^(send me a PM)](https://www.reddit.com/message/compose/?to=v-to-gfy_bot&subject=Mirror&message=Paste%20links%20to%20v.redd.it%20submission%20below%2C%20one%20per%20line.%20You%20will%20receive%20a%20single%20reply%20with%20a%20mirror%20for%20each%20valid%20v.redd.it%20link.%20Other%20links%20and%20text%20will%20be%20ignored.%0D%0A%0D%0A%3CYOUR%20LINKS%20HERE%3E) ^(with v.redd.it links. More) [^(about this bot)](https://github.com/andreipoe/v-to-gfy)^.
+
+^(Something wrong or missing?) [^(Open an issue)](https://github.com/andreipoe/v-to-gfy/issues)^(. Please make sure to include the submission URL and the bot's reply (if any)^) ^(in your bug report.)"""
 PM_MSG      = """Hi /u/{},
 
 I've mirrored all the submissions to v.redd.it that I could find in your PM. Here are the links:
@@ -147,20 +155,20 @@ def ratelimit_sleep():
     print(file=sys.stderr)
 
 # Main loop to monitor new submissions with v.redd.it content
-def submissions_loop(reddit, gfycat_token):
+def submissions_loop(watchlist, reddit, gfycat_token):
     already_processed = read_processed_submissions()
 
     for submission in reddit.subreddit(watchlist).new(limit=10):
         if submission.id in already_processed or 'v.redd.it' not in submission.url:
             continue
 
-        print(submission.permalink + ',', submission.url)
+        print('New submission scraped:', submission.permalink + ',', submission.url)
 
         gfyname = mirror_to_gfy(submission, reddit, gfycat_token)
-        # TODO: Post a reddit message when creating mirror succeeds
         if gfyname is not None:
-            print(COMMENT_MSG.format(gfyname))
-        log_processed(submission, gfyname)
+            submission.reply(COMMENT_MSG.format(gfyname))
+            log_processed(submission, gfyname)
+            print('Replied with Gfycat mirror:', GFYCAT_BASE_URL + gfyname)
 
 # Main loop to check and respond to private messages
 def pm_loop(reddit, gfycat_token):
@@ -274,7 +282,7 @@ def main():
         print(r.json())
         sys.exit(1)
 
-    # TODO: debugging
+    # For quick tests
     if (len(sys.argv) > 1):
         gfyname = mirror_to_gfy(reddit.submission(url=sys.argv[1]), reddit, gfycat_token)
         print(GFYCAT_BASE_URL + gfyname)
@@ -307,7 +315,7 @@ def main():
         try:
             # Mirror recent submissions
             if enabled['subreddit']:
-                submissions_loop(reddit, gfycat_token)
+                submissions_loop(watchlist, reddit, gfycat_token)
 
             # Create mirrors on-demand for submissions sent by PM
             if enabled['pm']:

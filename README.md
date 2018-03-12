@@ -16,8 +16,6 @@ The bot obtains content to mirror from 3 sources:
 
 In all cases, it automatically creates gfycat mirros of the v.redd.it content. Gfycat content can be viewed on all platforms, and the content is served on a dedicated page, without any discussion threads.
 
-**Note**: The subreddit scraping feature is incomplete and not in use as of 08-Mar-2018.
-
 ### Invoking the bot on demand
 
 PMs to the bot will be scanned for reddit post links. A mirror will be created for each valid link detected, and a single reply will be sent to the author of the PM containing all the mirror. All other body text, as well as the PM's subject, is ignored.
