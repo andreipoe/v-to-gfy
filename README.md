@@ -1,6 +1,6 @@
 # v-to-gfy
 
-![GitHub release](https://img.shields.io/github/release/andreipoe/v-to-gfy.svg) ![Docker Build Status](https://img.shields.io/docker/build/andreipoe/v-to-gfy.svg)
+![GitHub release](https://img.shields.io/github/release/andreipoe/v-to-gfy.svg) [![Docker Build Status](https://img.shields.io/docker/build/andreipoe/v-to-gfy.svg)](https://hub.docker.com/r/andreipoe/v-to-gfy/)
 
 This is a [Reddit](https://reddit.com) bot creates [gfycat](https://gfycat.com/) mirrors for popular video submissions using Reddit's own v.redd.it service.
 
