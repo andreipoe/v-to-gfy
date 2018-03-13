@@ -43,7 +43,7 @@ I've mirrored all the submissions to v.redd.it that I could find in your PM. Her
 
 {}
 
-Thanks for using your local friendly Reddit bot!
+Thanks for using your friendly neighbourhood Reddit bot!
 
 &nbsp;
 
@@ -54,7 +54,7 @@ Thanks for using your local friendly Reddit bot!
 ^(Something wrong or missing?) [^(Open an issue)](https://github.com/andreipoe/v-to-gfy/issues)^(. Please make sure to include the submission URL and the bot's reply (if any)^) ^(in your bug report.)"""
 MENTION_MSG = """Here is a [Gfycat mirror of this submission's video]({}). This makes it easier to share the content without the Reddit comments section.
 
-Thanks for using your local friendly Reddit bot!
+Thanks for using your friendly neighbourhood Reddit bot!
 
 ***
 
