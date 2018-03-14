@@ -12,6 +12,7 @@ from datetime import datetime
 from pprint import pprint
 
 import praw.models
+import prawcore.exceptions
 from praw import Reddit
 
 CONFIG_FILE = 'config.ini'
@@ -61,6 +62,11 @@ Thanks for using your friendly neighbourhood Reddit bot!
 ^(You can also) [^(send me a PM)](https://www.reddit.com/message/compose/?to=v-to-gfy_bot&subject=Mirror&message=Paste%20links%20to%20v.redd.it%20submission%20below%2C%20one%20per%20line.%20You%20will%20receive%20a%20single%20reply%20with%20a%20mirror%20for%20each%20valid%20v.redd.it%20link.%20Other%20links%20and%20text%20will%20be%20ignored.%0D%0A%0D%0A%3CYOUR%20LINKS%20HERE%3E) ^(with one or more v.redd.it links and I'll respond with Gfycat mirror links. More) [^(about this bot)](https://github.com/andreipoe/v-to-gfy)^.
 
 ^(Something wrong or missing?) [^(Open an issue)](https://github.com/andreipoe/v-to-gfy/issues)^(. Please make sure to include the submission URL and the bot's reply (if any)^) ^(in your bug report.)"""
+
+def print_error_with_timestamp(msg):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    print('[' + timestamp + ']', msg, file=sys.stderr)
+    print(file=sys.stderr)
 
 def read_config():
     config = ConfigParser()
@@ -149,10 +155,8 @@ def detect_urls_in_text(text):
 
 # When being ratelimitted by the Reddit API, wait 10 minutes before retrying
 def ratelimit_sleep():
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    print('[' + timestamp + ']', 'Reddit ratelimit hit. Waiting 10 minutes, then retrying...', file=sys.stderr)
+    print_error_with_timestamp('Reddit ratelimit hit; waiting 10 minutes, then retrying...')
     time.sleep(600)
-    print(file=sys.stderr)
 
 # Main loop to monitor new submissions with v.redd.it content
 def submissions_loop(watchlist, reddit, gfycat_token):
@@ -217,7 +221,7 @@ def mention_loop(reddit, gfycat_token):
         if not isinstance(m, praw.models.Comment):
             continue
 
-        print('Received comment from', m.author, 'on submission:', 'https://reddit.com/' + m.submission.permalink)
+        print('Received comment from', m.author, 'on submission:', 'https://reddit.com' + m.submission.permalink, 'with URL', m.submission.url)
         if 'u/' + str(reddit.user.me()) not in m.body:
             print('Comment does not mention the bot')
             m.mark_read()
@@ -324,14 +328,14 @@ def main():
             if enabled['mention']:
                 mention_loop(reddit, gfycat_token)
 
+        except prawcore.exceptions.RequestException as err:
+            print_error_with_timestamp('Reddit timeout; will retry...')
         except Exception as err:
             print('Error:', err, file=sys.stderr)
             print(traceback.format_exc(), file=sys.stderr)
 
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-            print('[' + timestamp + ']', 'Waiting', 2*interval, 'seconds, then restarting...', file=sys.stderr)
+            print_error_with_timestamp('Waiting' + str(2*interval) + 'seconds, then restarting...')
             time.sleep(interval)
-            print(file=sys.stderr)
 
         time.sleep(interval)
 
